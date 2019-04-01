@@ -36,7 +36,9 @@ def apply_squashing_func(mu, pi, logp_pi):
     mu = torch.tanh(mu)
     pi = torch.tanh(pi)
     # To avoid evil machine precision error, strictly clip 1-pi**2 to [0,1] range.
-    logp_pi -= torch.log(clip_but_pass_gradient(1 - pi**2, l=0, u=1) + 1e-6).sum(-1, keepdim=True)
+    logp_pi -= torch.log(
+        clip_but_pass_gradient(1 - pi**2, l=0, u=1) + 1e-6).sum(
+            -1, keepdim=True)
     return mu, pi, logp_pi
 
 
@@ -56,18 +58,18 @@ class Actor(nn.Module):
         self.log_std_fc = nn.Linear(256, action_dim)
 
         self.max_action = max_action
-        
+
         self.apply(weight_init)
 
     def forward(self, x):
         x = F.relu(self.l1(x))
         x = F.relu(self.l2(x))
         mu = self.mu_fc(x)
-        
+
         log_std = torch.tanh(self.log_std_fc(x))
         log_std = LOG_STD_MIN + 0.5 * (LOG_STD_MAX - LOG_STD_MIN) * (
             log_std + 1)
-        
+
         std = log_std.exp()
 
         pi = mu + torch.randn_like(mu) * std
@@ -93,7 +95,6 @@ class Critic(nn.Module):
         self.l6 = nn.Linear(256, 1)
 
         self.apply(weight_init)
-
 
     def forward(self, x, u):
         xu = torch.cat([x, u], 1)
@@ -149,7 +150,12 @@ class SAC(object):
         mu, pi, _ = self.actor(state)
         return pi.cpu().data.numpy().flatten()
 
-    def train(self, replay_buffer, batch_size=100, discount=0.99, tau=0.005, temperature=0.2):
+    def train(self,
+              replay_buffer,
+              batch_size=100,
+              discount=0.99,
+              tau=0.005,
+              temperature=0.2):
 
         # Sample replay buffer
         x, y, u, r, d = replay_buffer.sample(batch_size)
@@ -159,12 +165,13 @@ class SAC(object):
         done = torch.FloatTensor(1 - d).to(device)
         reward = torch.FloatTensor(r).to(device)
 
-
         def fit_critic():
             with torch.no_grad():
                 _, policy_action, log_pi = self.actor(next_state)
-                target_Q1, target_Q2 = self.critic_target(next_state, policy_action)
-                target_V = torch.min(target_Q1, target_Q2) - temperature * log_pi
+                target_Q1, target_Q2 = self.critic_target(
+                    next_state, policy_action)
+                target_V = torch.min(target_Q1,
+                                     target_Q2) - temperature * log_pi
                 target_Q = reward + (done * discount * target_V)
 
             # Get current Q estimates
@@ -185,7 +192,7 @@ class SAC(object):
             # Compute actor loss
             _, pi, log_pi = self.actor(state)
             actor_Q1, actor_Q2 = self.critic(state, pi)
-        
+
             actor_Q = torch.min(actor_Q1, actor_Q2)
 
             actor_loss = (temperature * log_pi - actor_Q).mean()

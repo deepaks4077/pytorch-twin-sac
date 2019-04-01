@@ -1,5 +1,6 @@
 import argparse
 import os
+import time
 
 import gym
 import numpy as np
@@ -90,14 +91,16 @@ if __name__ == "__main__":
     episode_num = 0
     done = True
 
+    start_time = time.time()
     while total_timesteps < args.max_timesteps:
 
         if done:
-
+            total_time = time.time() - start_time
+            fps = total_timesteps / total_time
             if total_timesteps != 0:
-                print(
-                    ("Total T: %d Episode Num: %d Episode T: %d Reward: %f") %
-                    (total_timesteps, episode_num, episode_timesteps,
+                print((
+                    "Total T: %d FPS: %d Episode Num: %d Episode T: %d Reward: %f"
+                ) % (total_timesteps, fps, episode_num, episode_timesteps,
                      episode_reward))
             # Evaluate episode
             if timesteps_since_eval >= args.eval_freq:
