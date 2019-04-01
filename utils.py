@@ -6,12 +6,15 @@ import numpy as np
 
 # Expects tuples of (state, next_state, action, reward, done)
 class ReplayBuffer(object):
-    def __init__(self, max_size=1e6, norm_ret=False, discount=0.99, alpha=0.001):
+    def __init__(self,
+                 max_size=1e6,
+                 norm_ret=False,
+                 discount=0.99,
+                 alpha=0.001):
         self.storage = []
         self.max_size = max_size
         self.ptr = 0
-        
-        
+
         if norm_ret:
             self.norm_ret = norm_ret
             self.discount = discount
@@ -19,7 +22,7 @@ class ReplayBuffer(object):
             self.returns = 0.0
             self.returns_ema = None
             self.returns_ema_var = None
-        
+
     def _update_ema_var(self, reward, mask):
         # From https://en.wikipedia.org/wiki/Moving_average#Exponentially_weighted_moving_variance_and_standard_deviation
         self.returns = self.returns * self.discount * mask + reward
@@ -30,15 +33,15 @@ class ReplayBuffer(object):
         else:
             delta = self.returns - self.returns_ema
             self.returns_ema += self.alpha * delta
-            self.returns_ema_var = (1 - self.alpha) * (self.returns_ema_var + self.alpha * (delta ** 2))
-        
-        
+            self.returns_ema_var = (1 - self.alpha) * (
+                self.returns_ema_var + self.alpha * (delta**2))
+
     def add(self, data):
         if self.norm_ret:
             reward = data[-2]
             mask = 1 - data[-1]
             self._update_ema_var(reward, mask)
-        
+
         if len(self.storage) == self.max_size:
             self.storage[int(self.ptr)] = data
             self.ptr = (self.ptr + 1) % self.max_size
@@ -56,11 +59,12 @@ class ReplayBuffer(object):
             u.append(np.array(U, copy=False))
             r.append(np.array(R, copy=False))
             d.append(np.array(D, copy=False))
-            
+
         rewards = np.array(r).reshape(-1, 1)
 
         if self.norm_ret:
             rewards /= np.sqrt(self.returns_ema_var + 1e-8)
             # import ipdb; ipdb.set_trace()
-            
-        return np.array(x), np.array(y), np.array(u), rewards, np.array(d).reshape(-1, 1)
+
+        return np.array(x), np.array(y), np.array(u), rewards, np.array(
+            d).reshape(-1, 1)

@@ -81,16 +81,18 @@ if __name__ == "__main__":
     parser.add_argument(
         "--tau", default=0.005, type=float)  # Target network update rate
     parser.add_argument(
-        "--temperature", default=0.2, type=float)  # SAC temperature
+        "--initial_temperature", default=0.2, type=float)  # SAC temperature
+    parser.add_argument(
+        "--learn_temperature",
+        action="store_true")  # Whether or not learn the temperature
     parser.add_argument(
         "--policy_freq", default=2,
         type=int)  # Frequency of delayed policy updates
     parser.add_argument(
-        "--normalize_returns",
-        action="store_true")  # Normalize returns
+        "--normalize_returns", action="store_true")  # Normalize returns
     args = parser.parse_args()
-    
-    if args.normalize_returns and args.temperature != 0.01:
+
+    if args.normalize_returns and args.initial_temperature != 0.01:
         print("Please use temperature of 0.01 for normalized returns")
 
     file_name = "%s_%s" % (args.env_name, str(args.seed))
@@ -117,7 +119,8 @@ if __name__ == "__main__":
     max_action = float(env.action_space.high[0])
 
     # Initialize policy
-    policy = SAC.SAC(state_dim, action_dim, max_action)
+    policy = SAC.SAC(state_dim, action_dim, max_action,
+                     args.initial_temperature)
 
     replay_buffer = utils.ReplayBuffer(norm_ret=args.normalize_returns)
 
@@ -186,8 +189,8 @@ if __name__ == "__main__":
 
         if total_timesteps > 1e3:
             policy.train(replay_buffer, total_timesteps, args.batch_size,
-                         args.discount, args.tau, args.policy_freq,
-                         args.temperature)
+                         args.discount, args.tau, args.policy_freq, -action_dim
+                         if args.learn_temperature else None)
 
         # Perform action
         new_obs, reward, done, _ = env.step(action)

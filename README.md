@@ -8,5 +8,3 @@ Experiments on single environments can be run by calling:
 python main.py --env HalfCheetah-v2
 ```
 
-## TODO
-- [ ] Add temperature learning 

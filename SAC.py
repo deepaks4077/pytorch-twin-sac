@@ -127,7 +127,7 @@ class Value(nn.Module):
 
 
 class SAC(object):
-    def __init__(self, state_dim, action_dim, max_action):
+    def __init__(self, state_dim, action_dim, max_action, initial_temperature):
         self.actor = Actor(state_dim, action_dim, max_action).to(device)
         self.actor_optimizer = torch.optim.Adam(self.actor.parameters())
 
@@ -136,7 +136,15 @@ class SAC(object):
         self.critic_target.load_state_dict(self.critic.state_dict())
         self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
 
+        self.log_alpha = torch.tensor(np.log(initial_temperature)).to(device)
+        self.log_alpha.requires_grad = True
+        self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha])
+
         self.max_action = max_action
+
+    @property
+    def alpha(self):
+        return self.log_alpha.exp()
 
     def select_action(self, state):
         state = torch.FloatTensor(state.reshape(1, -1)).to(device)
@@ -155,7 +163,7 @@ class SAC(object):
               discount=0.99,
               tau=0.005,
               policy_freq=2,
-              temperature=0.2):
+              target_entropy=None):
 
         # Sample replay buffer
         x, y, u, r, d = replay_buffer.sample(batch_size)
@@ -171,7 +179,7 @@ class SAC(object):
                 target_Q1, target_Q2 = self.critic_target(
                     next_state, policy_action)
                 target_V = torch.min(target_Q1,
-                                     target_Q2) - temperature * log_pi
+                                     target_Q2) - self.alpha.detach() * log_pi
                 target_Q = reward + (done * discount * target_V)
 
             # Get current Q estimates
@@ -195,12 +203,19 @@ class SAC(object):
 
             actor_Q = torch.min(actor_Q1, actor_Q2)
 
-            actor_loss = (temperature * log_pi - actor_Q).mean()
+            actor_loss = (self.alpha.detach() * log_pi - actor_Q).mean()
 
             # Optimize the actor
             self.actor_optimizer.zero_grad()
             actor_loss.backward()
             self.actor_optimizer.step()
+
+            if target_entropy is not None:
+                self.log_alpha_optimizer.zero_grad()
+                alpha_loss = (self.alpha *
+                              (-log_pi - target_entropy).detach()).mean()
+                alpha_loss.backward()
+                self.log_alpha_optimizer.step()
 
         if total_timesteps % policy_freq == 0:
             fit_actor()

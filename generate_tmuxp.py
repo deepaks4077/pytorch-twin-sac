@@ -10,11 +10,11 @@ parser.add_argument(
     help='number of random seeds to generate')
 parser.add_argument(
     '--env-names',
-    default="Humanoid-v2",
+    default="HalfCheetah-v2",
     help='environment name separated by semicolons')
 args = parser.parse_args()
 
-template = "env CUDA_VISIBLE_DEVICES={3} python main.py --env_name {0} --seed {1} --start_timesteps {2}"
+template = "env CUDA_VISIBLE_DEVICES={3} python main.py --env_name {0} --seed {1} --start_timesteps {2} --normalize_returns --initial_temperature 0.01 --learn_temperature --print_fps"
 
 config = {"session_name": "run-all", "windows": []}
 
