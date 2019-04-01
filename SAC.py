@@ -129,14 +129,12 @@ class Value(nn.Module):
 class SAC(object):
     def __init__(self, state_dim, action_dim, max_action):
         self.actor = Actor(state_dim, action_dim, max_action).to(device)
-        self.actor_optimizer = torch.optim.Adam(
-            self.actor.parameters())
+        self.actor_optimizer = torch.optim.Adam(self.actor.parameters())
 
         self.critic = Critic(state_dim, action_dim).to(device)
         self.critic_target = Critic(state_dim, action_dim).to(device)
         self.critic_target.load_state_dict(self.critic.state_dict())
-        self.critic_optimizer = torch.optim.Adam(
-            self.critic.parameters())
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters())
 
         self.max_action = max_action
 

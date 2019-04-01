@@ -3,25 +3,45 @@ import os
 import time
 
 import gym
+import imageio
 import numpy as np
 import torch
+from skimage.transform import resize
 
 import SAC
 import utils
 
 
 # Runs policy for X episodes and returns average reward
-def evaluate_policy(policy, eval_episodes=10):
+def evaluate_policy(policy,
+                    total_timesteps,
+                    eval_episodes=10,
+                    render=False,
+                    skip_frame=10):
     avg_reward = 0.
-    for _ in range(eval_episodes):
+    for i in range(eval_episodes):
         obs = env.reset()
+
+        if render and i == 0:
+            frames = [env.render(mode='rgb_array').copy()]
+
         done = False
+        t = 0
         while not done:
+            t += 1
             action = policy.select_action(np.array(obs))
             obs, reward, done, _ = env.step(action)
             avg_reward += reward
+            if render and i == 0 and t % skip_frame == 0:
+                frames.append(env.render(mode='rgb_array').copy())
 
     avg_reward /= eval_episodes
+
+    if render:
+        frames = [(resize(frame, (256, 256)) * 255).astype('uint8')
+                  for frame in frames]
+        filename = os.path.join('videos', '%d.mp4' % total_timesteps)
+        imageio.mimsave(filename, frames)
 
     print("---------------------------------------")
     print("Evaluation over %d episodes: %f" % (eval_episodes, avg_reward))
@@ -49,8 +69,10 @@ if __name__ == "__main__":
         "--save_models",
         action="store_true")  # Whether or not models are saved
     parser.add_argument(
-        "--print_fps",
-        action="store_true")  # Whether or not print fps
+        "--save_videos",
+        action="store_true")  # Whether or not evaluation vides are saved
+    parser.add_argument(
+        "--print_fps", action="store_true")  # Whether or not print fps
     parser.add_argument(
         "--batch_size", default=100,
         type=int)  # Batch size for both actor and critic
@@ -61,7 +83,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--temperature", default=0.2, type=float)  # SAC temperature
     parser.add_argument(
-        "--policy_freq", default=2, type=int)  # Frequency of delayed policy updates
+        "--policy_freq", default=2,
+        type=int)  # Frequency of delayed policy updates
     args = parser.parse_args()
 
     file_name = "%s_%s" % (args.env_name, str(args.seed))
@@ -73,6 +96,8 @@ if __name__ == "__main__":
         os.makedirs("./results")
     if args.save_models and not os.path.exists("./pytorch_models"):
         os.makedirs("./pytorch_models")
+    if args.save_videos and not os.path.exists("./videos"):
+        os.makedirs("./videos")
 
     env = gym.make(args.env_name)
 
@@ -91,7 +116,7 @@ if __name__ == "__main__":
     replay_buffer = utils.ReplayBuffer()
 
     # Evaluate untrained policy
-    evaluations = [evaluate_policy(policy)]
+    evaluations = [evaluate_policy(policy, 0, render=args.save_videos)]
 
     total_timesteps = 0
     timesteps_since_eval = 0
@@ -103,7 +128,7 @@ if __name__ == "__main__":
             torch.cuda.synchronize()
         prev_time = time.time()
         prev_eval_timesteps = 0
-    
+
     while total_timesteps < args.max_timesteps:
 
         if done:
@@ -111,21 +136,24 @@ if __name__ == "__main__":
                 if args.print_fps:
                     if torch.cuda.is_available():
                         torch.cuda.synchronize()
-                    fps = (total_timesteps - prev_eval_timesteps) / (time.time() - prev_time)
+                    fps = (total_timesteps - prev_eval_timesteps) / (
+                        time.time() - prev_time)
                     print((
                         "Total T: %d FPS %d Episode Num: %d Episode T: %d Reward: %f"
                     ) % (total_timesteps, fps, episode_num, episode_timesteps,
                          episode_reward))
                 else:
-                    print((
-                        "Total T: %d Episode Num: %d Episode T: %d Reward: %f"
-                    ) % (total_timesteps, episode_num, episode_timesteps,
-                         episode_reward))
+                    print(
+                        ("Total T: %d Episode Num: %d Episode T: %d Reward: %f"
+                         ) % (total_timesteps, episode_num, episode_timesteps,
+                              episode_reward))
 
             # Evaluate episode
             if timesteps_since_eval >= args.eval_freq:
                 timesteps_since_eval %= args.eval_freq
-                evaluations.append(evaluate_policy(policy))
+                evaluations.append(
+                    evaluate_policy(
+                        policy, total_timesteps, render=args.save_videos))
 
                 if args.save_models:
                     policy.save(file_name, directory="./pytorch_models")
@@ -149,10 +177,11 @@ if __name__ == "__main__":
             action = env.action_space.sample()
         else:
             action = policy.sample_action(np.array(obs))
-            
+
         if total_timesteps > 1e3:
-            policy.train(replay_buffer, total_timesteps, args.batch_size, args.discount,
-                         args.tau, args.policy_freq, args.temperature)
+            policy.train(replay_buffer, total_timesteps, args.batch_size,
+                         args.discount, args.tau, args.policy_freq,
+                         args.temperature)
 
         # Perform action
         new_obs, reward, done, _ = env.step(action)
@@ -170,7 +199,8 @@ if __name__ == "__main__":
         timesteps_since_eval += 1
 
     # Final evaluation
-    evaluations.append(evaluate_policy(policy))
+    evaluations.append(
+        evaluate_policy(policy, total_timesteps, render=args.save_videos))
     if args.save_models:
         policy.save("%s" % (file_name), directory="./pytorch_models")
     np.save("./results/%s" % (file_name), evaluations)
