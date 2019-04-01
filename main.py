@@ -49,6 +49,9 @@ if __name__ == "__main__":
         "--save_models",
         action="store_true")  # Whether or not models are saved
     parser.add_argument(
+        "--print_fps",
+        action="store_true")  # Whether or not print fps
+    parser.add_argument(
         "--batch_size", default=100,
         type=int)  # Batch size for both actor and critic
     parser.add_argument(
@@ -95,17 +98,30 @@ if __name__ == "__main__":
     episode_num = 0
     done = True
 
-    start_time = time.time()
+    if args.print_fps:
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        prev_time = time.time()
+        prev_eval_timesteps = 0
+    
     while total_timesteps < args.max_timesteps:
 
         if done:
-            total_time = time.time() - start_time
-            fps = total_timesteps / total_time
             if total_timesteps != 0:
-                print((
-                    "Total T: %d FPS: %d Episode Num: %d Episode T: %d Reward: %f"
-                ) % (total_timesteps, fps, episode_num, episode_timesteps,
-                     episode_reward))
+                if args.print_fps:
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                    fps = (total_timesteps - prev_eval_timesteps) / (time.time() - prev_time)
+                    print((
+                        "Total T: %d FPS %d Episode Num: %d Episode T: %d Reward: %f"
+                    ) % (total_timesteps, fps, episode_num, episode_timesteps,
+                         episode_reward))
+                else:
+                    print((
+                        "Total T: %d Episode Num: %d Episode T: %d Reward: %f"
+                    ) % (total_timesteps, episode_num, episode_timesteps,
+                         episode_reward))
+
             # Evaluate episode
             if timesteps_since_eval >= args.eval_freq:
                 timesteps_since_eval %= args.eval_freq
@@ -114,6 +130,12 @@ if __name__ == "__main__":
                 if args.save_models:
                     policy.save(file_name, directory="./pytorch_models")
                 np.save("./results/%s" % (file_name), evaluations)
+
+                if args.print_fps:
+                    if torch.cuda.is_available():
+                        torch.cuda.synchronize()
+                    prev_time = time.time()
+                    prev_eval_timesteps = total_timesteps
 
             # Reset environment
             obs = env.reset()
