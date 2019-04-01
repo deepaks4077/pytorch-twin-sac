@@ -2,6 +2,8 @@ import argparse
 import os
 import time
 
+import pybullet
+import pybullet_envs
 import gym
 import imageio
 import numpy as np
@@ -85,7 +87,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--policy_freq", default=2,
         type=int)  # Frequency of delayed policy updates
+    parser.add_argument(
+        "--normalize_returns",
+        action="store_true")  # Normalize returns
     args = parser.parse_args()
+    
+    if args.normalize_returns and args.temperature != 0.01:
+        print("Please use temperature of 0.01 for normalized returns")
 
     file_name = "%s_%s" % (args.env_name, str(args.seed))
     print("---------------------------------------")
@@ -113,7 +121,7 @@ if __name__ == "__main__":
     # Initialize policy
     policy = SAC.SAC(state_dim, action_dim, max_action)
 
-    replay_buffer = utils.ReplayBuffer()
+    replay_buffer = utils.ReplayBuffer(norm_ret=args.normalize_returns)
 
     # Evaluate untrained policy
     evaluations = [evaluate_policy(policy, 0, render=args.save_videos)]
