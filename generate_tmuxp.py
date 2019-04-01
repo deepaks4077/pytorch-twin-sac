@@ -10,7 +10,7 @@ parser.add_argument(
     help='number of random seeds to generate')
 parser.add_argument(
     '--env-names',
-    default="Hopper-v2",
+    default="Humanoid-v2",
     help='environment name separated by semicolons')
 args = parser.parse_args()
 

@@ -55,6 +55,10 @@ if __name__ == "__main__":
         "--discount", default=0.99, type=float)  # Discount factor
     parser.add_argument(
         "--tau", default=0.005, type=float)  # Target network update rate
+    parser.add_argument(
+        "--temperature", default=0.2, type=float)  # SAC temperature
+    parser.add_argument(
+        "--policy_freq", default=2, type=int)  # Frequency of delayed policy updates
     args = parser.parse_args()
 
     file_name = "%s_%s" % (args.env_name, str(args.seed))
@@ -123,10 +127,10 @@ if __name__ == "__main__":
             action = env.action_space.sample()
         else:
             action = policy.sample_action(np.array(obs))
-
+            
         if total_timesteps > 1e3:
-            policy.train(replay_buffer, args.batch_size, args.discount,
-                         args.tau)
+            policy.train(replay_buffer, total_timesteps, args.batch_size, args.discount,
+                         args.tau, args.policy_freq, args.temperature)
 
         # Perform action
         new_obs, reward, done, _ = env.step(action)

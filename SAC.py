@@ -130,13 +130,13 @@ class SAC(object):
     def __init__(self, state_dim, action_dim, max_action):
         self.actor = Actor(state_dim, action_dim, max_action).to(device)
         self.actor_optimizer = torch.optim.Adam(
-            self.actor.parameters(), lr=3e-4)
+            self.actor.parameters())
 
         self.critic = Critic(state_dim, action_dim).to(device)
         self.critic_target = Critic(state_dim, action_dim).to(device)
         self.critic_target.load_state_dict(self.critic.state_dict())
         self.critic_optimizer = torch.optim.Adam(
-            self.critic.parameters(), lr=3e-4)
+            self.critic.parameters())
 
         self.max_action = max_action
 
@@ -152,9 +152,11 @@ class SAC(object):
 
     def train(self,
               replay_buffer,
+              total_timesteps,
               batch_size=100,
               discount=0.99,
               tau=0.005,
+              policy_freq=2,
               temperature=0.2):
 
         # Sample replay buffer
@@ -202,13 +204,14 @@ class SAC(object):
             actor_loss.backward()
             self.actor_optimizer.step()
 
-        fit_actor()
+        if total_timesteps % policy_freq == 0:
+            fit_actor()
 
-        # Update the frozen target models
-        for param, target_param in zip(self.critic.parameters(),
-                                       self.critic_target.parameters()):
-            target_param.data.copy_(tau * param.data +
-                                    (1 - tau) * target_param.data)
+            # Update the frozen target models
+            for param, target_param in zip(self.critic.parameters(),
+                                           self.critic_target.parameters()):
+                target_param.data.copy_(tau * param.data +
+                                        (1 - tau) * target_param.data)
 
     def save(self, filename, directory):
         torch.save(self.actor.state_dict(), '%s/%s_actor.pth' % (directory,
