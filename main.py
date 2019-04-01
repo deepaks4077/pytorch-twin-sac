@@ -2,8 +2,6 @@ import argparse
 import os
 import time
 
-import pybullet
-import pybullet_envs
 import gym
 import imageio
 import numpy as np
