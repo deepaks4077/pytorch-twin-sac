@@ -31,14 +31,14 @@ def clip_but_pass_gradient(x, l=-1., u=1.):
     return x + ((u - x) * clip_up + (l - x) * clip_low).detach()
 
 
-def apply_squashing_func(mu, pi, logp_pi):
+def apply_squashing_func(mu, pi, log_pi):
     mu = torch.tanh(mu)
     pi = torch.tanh(pi)
     # To avoid evil machine precision error, strictly clip 1-pi**2 to [0,1] range.
-    logp_pi -= torch.log(
+    log_pi -= torch.log(
         clip_but_pass_gradient(1 - pi**2, l=0, u=1) + 1e-6).sum(
             -1, keepdim=True)
-    return mu, pi, logp_pi
+    return mu, pi, log_pi
 
 
 def weight_init(m):
@@ -74,7 +74,7 @@ class Actor(nn.Module):
         pi = mu + torch.randn_like(mu) * std
 
         log_pi = gaussian_likelihood(pi, mu, log_std)
-        mu, pi, logp_pi = apply_squashing_func(mu, pi, log_pi)
+        mu, pi, log_pi = apply_squashing_func(mu, pi, log_pi)
 
         return mu, pi, log_pi
 
