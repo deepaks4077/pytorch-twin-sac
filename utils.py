@@ -20,27 +20,30 @@ class ReplayBuffer(object):
             self.discount = discount
             self.alpha = alpha
             self.returns = 0.0
-            self.returns_ema = None
-            self.returns_ema_var = None
+            self.returns_count = 0
+            self.returns_mean = None
+            self.returns_m2 = None
 
-    def _update_ema_var(self, reward, mask):
+    def _update_stats(self, reward, mask):
         # From https://en.wikipedia.org/wiki/Moving_average#Exponentially_weighted_moving_variance_and_standard_deviation
         self.returns = self.returns * self.discount * mask + reward
 
-        if self.returns_ema is None:
-            self.returns_ema = self.returns
-            self.returns_ema_var = 0
+        if self.returns_mean is None:
+            self.returns_count = 1
+            self.returns_mean = self.returns
+            self.returns_m2 = 0
         else:
-            delta = self.returns - self.returns_ema
-            self.returns_ema += self.alpha * delta
-            self.returns_ema_var = (1 - self.alpha) * (
-                self.returns_ema_var + self.alpha * (delta**2))
+            self.returns_count += 1
+            delta = self.returns - self.returns_mean
+            self.returns_mean += delta / self.returns_count
+            delta2 = self.returns - self.returns_mean
+            self.returns_m2 += delta * delta2
 
     def add(self, data):
         if self.norm_ret:
             reward = data[-2]
             mask = 1 - data[-1]
-            self._update_ema_var(reward, mask)
+            self._update_stats(reward, mask)
 
         if len(self.storage) == self.max_size:
             self.storage[int(self.ptr)] = data
@@ -63,8 +66,7 @@ class ReplayBuffer(object):
         rewards = np.array(r).reshape(-1, 1)
 
         if self.norm_ret:
-            rewards /= np.sqrt(self.returns_ema_var + 1e-8)
-            # import ipdb; ipdb.set_trace()
+            rewards /= np.sqrt(self.returns_m2 / self.returns_count + 1e-8)
 
         return np.array(x), np.array(y), np.array(u), rewards, np.array(
             d).reshape(-1, 1)
