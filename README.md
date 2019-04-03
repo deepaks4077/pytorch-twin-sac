@@ -8,3 +8,14 @@ Experiments on single environments can be run by calling:
 python main.py --env HalfCheetah-v2
 ```
 
+or run SAC with learned temperature
+
+```bash
+python main.py --env HalfCheetah-v2 --initial_temperature 0.01 --learn_temperature
+```
+
+also you can try to normalize returns that might make training more stable early in training
+
+```bash
+python main.py --env HalfCheetah-v2 --initial_temperature 0.01 --learn_temperature --normalized_returns
+```
