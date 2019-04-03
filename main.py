@@ -1,5 +1,6 @@
 import argparse
 import os
+import random
 import time
 
 import gym
@@ -110,9 +111,12 @@ if __name__ == "__main__":
     env = gym.make(args.env_name)
 
     # Set seeds
-    env.seed(args.seed)
     torch.manual_seed(args.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(args.seed)
     np.random.seed(args.seed)
+    random.seed(args.seed)
+    env.seed(args.seed)
 
     state_dim = env.observation_space.shape[0]
     action_dim = env.action_space.shape[0]
@@ -189,8 +193,8 @@ if __name__ == "__main__":
 
         if total_timesteps > 1e3:
             policy.train(replay_buffer, total_timesteps, args.batch_size,
-                         args.discount, args.tau, args.policy_freq, -action_dim
-                         if args.learn_temperature else None)
+                         args.discount, args.tau, args.policy_freq,
+                         -action_dim if args.learn_temperature else None)
 
         # Perform action
         new_obs, reward, done, _ = env.step(action)
