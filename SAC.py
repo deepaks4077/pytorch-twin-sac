@@ -20,8 +20,8 @@ EPS = 1e-8
 def gaussian_likelihood(x, mu, log_std):
     std = log_std.exp()
 
-    pre_sum = -0.5 * (((x - mu) /
-                       (std + EPS)).pow(2) + 2 * log_std + np.log(2 * np.pi))
+    pre_sum = -0.5 * ((
+        (x - mu) / (std + EPS)).pow(2) + 2 * log_std + np.log(2 * np.pi))
     return pre_sum.sum(-1, keepdim=True)
 
 
@@ -35,9 +35,9 @@ def apply_squashing_func(mu, pi, log_pi):
     mu = torch.tanh(mu)
     pi = torch.tanh(pi)
     # To avoid evil machine precision error, strictly clip 1-pi**2 to [0,1] range.
-    log_pi -= torch.log(
-        clip_but_pass_gradient(1 - pi**2, l=0, u=1) + 1e-6).sum(
-            -1, keepdim=True)
+    log_pi -= torch.log(clip_but_pass_gradient(1 - pi**2, l=0, u=1) +
+                        1e-6).sum(
+                            -1, keepdim=True)
     return mu, pi, log_pi
 
 
@@ -106,23 +106,6 @@ class Critic(nn.Module):
         x2 = F.relu(self.l5(x2))
         x2 = self.l6(x2)
         return x1, x2
-
-
-class Value(nn.Module):
-    def __init__(self, state_dim):
-        super(Value, self).__init__()
-
-        # Q1 architecture
-        self.l1 = nn.Linear(state_dim, 256)
-        self.l2 = nn.Linear(256, 256)
-        self.l3 = nn.Linear(256, 1)
-
-    def forward(self, x):
-        x1 = F.relu(self.l1(x))
-        x1 = F.relu(self.l2(x1))
-        x1 = self.l3(x1)
-
-        return x1
 
 
 class SAC(object):
@@ -211,8 +194,8 @@ class SAC(object):
 
             if target_entropy is not None:
                 self.log_alpha_optimizer.zero_grad()
-                alpha_loss = (self.alpha *
-                              (-log_pi - target_entropy).detach()).mean()
+                alpha_loss = (
+                    self.alpha * (-log_pi - target_entropy).detach()).mean()
                 alpha_loss.backward()
                 self.log_alpha_optimizer.step()
 
@@ -226,10 +209,10 @@ class SAC(object):
                                         (1 - tau) * target_param.data)
 
     def save(self, filename, directory):
-        torch.save(self.actor.state_dict(), '%s/%s_actor.pth' % (directory,
-                                                                 filename))
-        torch.save(self.critic.state_dict(), '%s/%s_critic.pth' % (directory,
-                                                                   filename))
+        torch.save(self.actor.state_dict(),
+                   '%s/%s_actor.pth' % (directory, filename))
+        torch.save(self.critic.state_dict(),
+                   '%s/%s_critic.pth' % (directory, filename))
 
     def load(self, filename, directory):
         self.actor.load_state_dict(
