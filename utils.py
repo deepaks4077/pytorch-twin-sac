@@ -15,8 +15,8 @@ class ReplayBuffer(object):
         self.max_size = max_size
         self.ptr = 0
 
+        self.norm_ret = norm_ret
         if norm_ret:
-            self.norm_ret = norm_ret
             self.discount = discount
             self.alpha = alpha
             self.returns = 0.0
