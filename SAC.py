@@ -20,24 +20,16 @@ EPS = 1e-8
 def gaussian_likelihood(x, mu, log_std):
     std = log_std.exp()
 
-    pre_sum = -0.5 * ((
-        (x - mu) / (std + EPS)).pow(2) + 2 * log_std + np.log(2 * np.pi))
-    return pre_sum.sum(-1, keepdim=True)
-
-
-def clip_but_pass_gradient(x, l=-1., u=1.):
-    clip_up = (x > u).float().to(x.device)
-    clip_low = (x < l).float().to(x.device)
-    return x + ((u - x) * clip_up + (l - x) * clip_low).detach()
+    pre_sum = -0.5 * (((x - mu) / (std + EPS)).pow(2)) - log_std
+    return pre_sum.sum(-1, keepdim=True) - 0.5 * np.log(2 * np.pi) * x.size(-1)
 
 
 def apply_squashing_func(mu, pi, log_pi):
     mu = torch.tanh(mu)
     pi = torch.tanh(pi)
     # To avoid evil machine precision error, strictly clip 1-pi**2 to [0,1] range.
-    log_pi -= torch.log(clip_but_pass_gradient(1 - pi**2, l=0, u=1) +
-                        1e-6).sum(
-                            -1, keepdim=True)
+    log_pi -= torch.log(torch.clamp(1 - pi**2, 0, 1) + 1e-6).sum(
+        -1, keepdim=True)
     return mu, pi, log_pi
 
 
