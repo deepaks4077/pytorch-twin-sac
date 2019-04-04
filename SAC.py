@@ -26,10 +26,12 @@ def gaussian_likelihood(x, mu, log_std):
 
 def apply_squashing_func(mu, pi, log_pi):
     mu = torch.tanh(mu)
-    pi = torch.tanh(pi)
-    # To avoid evil machine precision error, strictly clip 1-pi**2 to [0,1] range.
-    log_pi -= torch.log(torch.clamp(1 - pi**2, 0, 1) + 1e-6).sum(
-        -1, keepdim=True)
+    if pi is not None:
+        pi = torch.tanh(pi)
+    if log_pi is not None:
+        # To avoid evil machine precision error, strictly clip 1-pi**2 to [0,1] range.
+        log_pi -= torch.log(torch.clamp(1 - pi**2, 0, 1) + 1e-6).sum(
+            -1, keepdim=True)
     return mu, pi, log_pi
 
 
@@ -51,7 +53,7 @@ class Actor(nn.Module):
 
         self.apply(weight_init)
 
-    def forward(self, x):
+    def forward(self, x, compute_pi=True, compute_log_pi=True):
         x = F.relu(self.l1(x))
         x = F.relu(self.l2(x))
         mu, log_std = self.l3(x).chunk(2, dim=-1)
@@ -60,11 +62,17 @@ class Actor(nn.Module):
         log_std = LOG_STD_MIN + 0.5 * (LOG_STD_MAX - LOG_STD_MIN) * (
             log_std + 1)
 
-        std = log_std.exp()
+        if compute_pi:
+            std = log_std.exp()
+            pi = mu + torch.randn_like(mu) * std
+        else:
+            pi = None
 
-        pi = mu + torch.randn_like(mu) * std
+        if compute_log_pi:
+            log_pi = gaussian_likelihood(pi, mu, log_std)
+        else:
+            log_pi = None
 
-        log_pi = gaussian_likelihood(pi, mu, log_std)
         mu, pi, log_pi = apply_squashing_func(mu, pi, log_pi)
 
         return mu, pi, log_pi
@@ -121,12 +129,12 @@ class SAC(object):
 
     def select_action(self, state):
         state = torch.FloatTensor(state.reshape(1, -1)).to(device)
-        mu, pi, _ = self.actor(state)
+        mu, _, _ = self.actor(state, compute_pi=False, compute_log_pi=False)
         return mu.cpu().data.numpy().flatten()
 
     def sample_action(self, state):
         state = torch.FloatTensor(state.reshape(1, -1)).to(device)
-        mu, pi, _ = self.actor(state)
+        mu, pi, _ = self.actor(state, compute_log_pi=False)
         return pi.cpu().data.numpy().flatten()
 
     def train(self,
