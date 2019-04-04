@@ -108,6 +108,9 @@ if __name__ == "__main__":
     if args.save_videos and not os.path.exists("./videos"):
         os.makedirs("./videos")
 
+    if args.env_name.startswith('DM'):
+        import dmc_registration
+
     env = gym.make(args.env_name)
 
     # Set seeds

@@ -17,5 +17,9 @@ python main.py --env HalfCheetah-v2 --initial_temperature 0.01 --learn_temperatu
 also you can try to normalize returns that might make training more stable early in training
 
 ```bash
-python main.py --env HalfCheetah-v2 --initial_temperature 0.01 --learn_temperature --normalized_returns
+python main.py --env HalfCheetah-v2 --initial_temperature 0.01 --learn_temperature --normalize_returns
 ```
+
+## DeepMind Control Suite
+
+In order to use DeepMind Control Suite, please first install the wrapper from [this repo](https://github.com/1nadequacy/dm_control2gym). And use the camelcase format, for example, DMWalkerWalk-v2.
