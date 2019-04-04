@@ -45,8 +45,7 @@ class Actor(nn.Module):
 
         self.l1 = nn.Linear(state_dim, 256)
         self.l2 = nn.Linear(256, 256)
-        self.mu_fc = nn.Linear(256, action_dim)
-        self.log_std_fc = nn.Linear(256, action_dim)
+        self.l3 = nn.Linear(256, 2 * action_dim)
 
         self.max_action = max_action
 
@@ -55,9 +54,9 @@ class Actor(nn.Module):
     def forward(self, x):
         x = F.relu(self.l1(x))
         x = F.relu(self.l2(x))
-        mu = self.mu_fc(x)
+        mu, log_std = self.l3(x).chunk(2, dim=-1)
 
-        log_std = torch.tanh(self.log_std_fc(x))
+        log_std = torch.tanh(log_std)
         log_std = LOG_STD_MIN + 0.5 * (LOG_STD_MAX - LOG_STD_MIN) * (
             log_std + 1)
 
