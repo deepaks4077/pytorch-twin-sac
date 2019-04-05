@@ -1,8 +1,8 @@
 import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
 import utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -17,11 +17,10 @@ EPS = 1e-8
 # From https://github.com/openai/spinningup/blob/master/spinup/algos/sac/core.py
 
 
-def gaussian_likelihood(x, mu, log_std):
-    std = log_std.exp()
-
-    pre_sum = -0.5 * (((x - mu) / (std + EPS)).pow(2)) - log_std
-    return pre_sum.sum(-1, keepdim=True) - 0.5 * np.log(2 * np.pi) * x.size(-1)
+def gaussian_likelihood(noise, log_std):
+    pre_sum = -0.5 * noise.pow(2) - log_std
+    return pre_sum.sum(
+        -1, keepdim=True) - 0.5 * np.log(2 * np.pi) * noise.size(-1)
 
 
 def apply_squashing_func(mu, pi, log_pi):
@@ -29,9 +28,7 @@ def apply_squashing_func(mu, pi, log_pi):
     if pi is not None:
         pi = torch.tanh(pi)
     if log_pi is not None:
-        # To avoid evil machine precision error, strictly clip 1-pi**2 to [0,1] range.
-        log_pi -= torch.log(torch.clamp(1 - pi**2, 0, 1) + 1e-6).sum(
-            -1, keepdim=True)
+        log_pi -= torch.log(F.relu(1 - pi.pow(2)) + 1e-6).sum(-1, keepdim=True)
     return mu, pi, log_pi
 
 
@@ -49,8 +46,6 @@ class Actor(nn.Module):
         self.l2 = nn.Linear(256, 256)
         self.l3 = nn.Linear(256, 2 * action_dim)
 
-        self.max_action = max_action
-
         self.apply(weight_init)
 
     def forward(self, x, compute_pi=True, compute_log_pi=True):
@@ -64,12 +59,13 @@ class Actor(nn.Module):
 
         if compute_pi:
             std = log_std.exp()
-            pi = mu + torch.randn_like(mu) * std
+            noise = torch.randn_like(mu)
+            pi = mu + noise * std
         else:
             pi = None
 
         if compute_log_pi:
-            log_pi = gaussian_likelihood(pi, mu, log_std)
+            log_pi = gaussian_likelihood(noise, log_std)
         else:
             log_pi = None
 
@@ -130,7 +126,8 @@ class SAC(object):
     def select_action(self, state):
         with torch.no_grad():
             state = torch.FloatTensor(state.reshape(1, -1)).to(device)
-            mu, _, _ = self.actor(state, compute_pi=False, compute_log_pi=False)
+            mu, _, _ = self.actor(
+                state, compute_pi=False, compute_log_pi=False)
             return mu.cpu().data.numpy().flatten()
 
     def sample_action(self, state):
