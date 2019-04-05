@@ -1,8 +1,8 @@
 import numpy as np
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 import utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -118,6 +118,16 @@ class SAC(object):
         self.log_alpha_optimizer = torch.optim.Adam([self.log_alpha])
 
         self.max_action = max_action
+
+    def set_lr(self, lr):
+        for param_group in self.critic_optimizer.param_groups:
+            param_group['lr'] = lr
+
+        for param_group in self.actor_optimizer.param_groups:
+            param_group['lr'] = lr
+
+        for param_group in self.log_alpha_optimizer.param_groups:
+            param_group['lr'] = lr
 
     @property
     def alpha(self):

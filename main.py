@@ -91,6 +91,7 @@ if __name__ == "__main__":
         type=int)  # Frequency of delayed policy updates
     parser.add_argument(
         "--normalize_returns", action="store_true")  # Normalize returns
+    parser.add_argument("--linear_lr_decay", action="store_true")  # Decay lr
     args = parser.parse_args()
 
     if args.normalize_returns and args.initial_temperature != 0.01:
@@ -149,6 +150,10 @@ if __name__ == "__main__":
         prev_eval_timesteps = 0
 
     while total_timesteps < args.max_timesteps:
+
+        if args.linear_lr_decay:
+            policy.set_lr(
+                1e-3 * (1 - float(total_timesteps) / args.max_timesteps))
 
         if done:
             if total_timesteps != 0:
