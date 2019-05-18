@@ -184,7 +184,9 @@ class SAC(object):
             critic_loss.backward()
             self.critic_optimizer.step()
 
-        fit_critic()
+            return critic_loss.cpu().detach().item()
+
+        critic_loss_avg = fit_critic()
 
         def fit_actor():
             # Compute actor loss
@@ -207,14 +209,20 @@ class SAC(object):
                 alpha_loss.backward()
                 self.log_alpha_optimizer.step()
 
+            return actor_loss.cpu().detach().item()
+
         if total_timesteps % policy_freq == 0:
-            fit_actor()
+            actor_loss_avg = fit_actor()
 
             # Update the frozen target models
             for param, target_param in zip(self.critic.parameters(),
                                            self.critic_target.parameters()):
                 target_param.data.copy_(tau * param.data +
                                         (1 - tau) * target_param.data)
+
+            return critic_loss_avg, actor_loss_avg, critic_loss_avg, actor_loss_avg
+
+        return critic_loss_avg, 0.0, critic_loss_avg, 0.0
 
     def save(self, filename, directory):
         torch.save(self.actor.state_dict(),
